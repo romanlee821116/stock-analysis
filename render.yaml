@@ -8,5 +8,9 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false
     healthCheckPath: /health
     autoDeploy: true 
