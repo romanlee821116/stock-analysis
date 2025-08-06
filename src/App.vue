@@ -118,13 +118,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
+  <div id="app">
     <h3>每日股票收盤價：{{ date }}</h3>
     <div v-if="loading">載入中...</div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else>
       <div class="filter">
-        <div>
+        <div class="filter-inputs">
           <div>
             股票代號/名稱
             <input type="text" v-model="symbol_filter" placeholder="輸入股票代號或名稱" />
@@ -138,7 +138,7 @@ onMounted(async () => {
             <input type="number" v-model="trade_count_diff" />
           </div>
         </div>
-        <div>
+        <div class="filter-buttons">
           <button @click="defaultFilter">
             預設篩選
           </button>
@@ -150,43 +150,82 @@ onMounted(async () => {
           </button>
         </div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <!-- <th>日期</th> -->
-            <th>股票代號</th>
-            <th>名稱</th>
-            <th>收盤價</th>
-            <th>昨日收盤價</th>
-            <th>漲跌幅(%)</th>
-            <th>當日成交筆數</th>
-            <th>昨日成交筆數</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="stock in display_stocks" :key="stock.symbol">
-            <!-- <td>{{ stock.date }}</td> -->
-            <td>{{ stock.symbol }}</td>
-            <td>{{ stock.name }}</td>
-            <td>{{ stock.close }}</td>
-            <td>{{ stock.prev_close ?? '-' }}</td>
-            <td :class="getPriceChangeClass(calculatePriceChange(stock.close, stock.prev_close))">
-              {{ calculatePriceChange(stock.close, stock.prev_close) ?? '-' }}
-            </td>
-            <td>{{ stock.trade_count ?? '-' }}</td>
-            <td>{{ stock.prev_trade_count ?? '-' }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <!-- <th>日期</th> -->
+              <th>股票代號</th>
+              <th>名稱</th>
+              <th>收盤價</th>
+              <th>昨日收盤價</th>
+              <th>漲跌幅(%)</th>
+              <th>當日成交筆數</th>
+              <th>昨日成交筆數</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="stock in display_stocks" :key="stock.symbol">
+              <!-- <td>{{ stock.date }}</td> -->
+              <td>{{ stock.symbol }}</td>
+              <td>{{ stock.name }}</td>
+              <td>{{ stock.close }}</td>
+              <td>{{ stock.prev_close ?? '-' }}</td>
+              <td :class="getPriceChangeClass(calculatePriceChange(stock.close, stock.prev_close))">
+                {{ calculatePriceChange(stock.close, stock.prev_close) ?? '-' }}
+              </td>
+              <td>{{ stock.trade_count ?? '-' }}</td>
+              <td>{{ stock.prev_trade_count ?? '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* 全域樣式 - 防止水平滾動 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+#app {
+  overflow-x: hidden;
+  padding: 0;
+}
+
+/* 確保主要容器不會超出螢幕 */
+div {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 table {
   border-collapse: collapse;
   width: 100%;
   margin-top: 2em;
+  max-width: 100%;
+}
+
+/* 表格容器 - 允許水平滾動 */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 2em;
+}
+
+/* 表格本身 - 設定最小寬度確保內容完整顯示 */
+table {
+  min-width: 800px; /* 確保所有欄位都能顯示 */
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0;
 }
 thead {
   color: #000;
@@ -202,24 +241,34 @@ th {
 .filter {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1em;
   padding: 1em;
   background: #f9f9f9;
   border-radius: 8px;
   color: #000;
+  gap: 1em;
 }
 
-.filter > div:first-child {
+.filter-inputs {
   display: flex;
   gap: 1em;
   flex-wrap: wrap;
+  flex: 1;
 }
 
-.filter > div:first-child > div {
+.filter-inputs > div {
   display: flex;
   flex-direction: column;
   gap: 0.5em;
+  min-width: 150px;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .filter input {
@@ -231,16 +280,93 @@ th {
 
 .filter button {
   padding: 0.5em 1em;
-  margin: 0 0.25em;
   border: none;
   border-radius: 4px;
   background: #ccc;
   color: white;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .filter button:hover {
   background: #444;
+}
+
+/* RWD 佈局 - 螢幕寬度小於 575px */
+@media (max-width: 575px) {
+  .filter {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .filter-inputs {
+    order: 1;
+    margin-bottom: 1em;
+    width: 100%;
+  }
+  
+  .filter-buttons {
+    order: 2;
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .filter-inputs > div {
+    min-width: 100%;
+    width: 100%;
+  }
+  
+  .filter input {
+    min-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* 表格容器在小螢幕時的處理 */
+  .table-container {
+    width: 100%;
+    overflow-x: auto;
+    margin-top: 1em;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  /* 表格在小螢幕時的處理 */
+  table {
+    min-width: 600px; /* 小螢幕時的最小寬度 */
+    width: 100%;
+    font-size: 0.8em;
+    margin-top: 0;
+  }
+  
+  /* 表格內容在小螢幕時的處理 */
+  th, td {
+    min-width: 50px;
+    max-width: 100px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    padding: 0.3em 0.5em;
+    font-size: 0.9em;
+  }
+  
+  /* 確保整個頁面不會水平滾動 */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* 確保容器不會超出螢幕 */
+  div {
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+  
+  /* 標題在小螢幕上的處理 */
+  h3 {
+    font-size: 1.2em;
+    margin: 0.5em 0;
+  }
 }
 
 /* 漲跌顏色樣式 */
