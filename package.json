@@ -1,22 +1,22 @@
 {
-  "name": "frontend",
+  "name": "stock-analysis-linebot",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "echo 'No build needed for server'",
     "preview": "vite preview",
     "start": "node server.js"
   },
   "dependencies": {
     "vue": "^3.5.17",
     "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "vite": "^7.0.4"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.0",
-    "vite": "^7.0.4",
     "concurrently": "^8.2.2"
   }
 }
