@@ -46,7 +46,7 @@ export async function fetchStocks() {
       yesterday.setDate(yesterday.getDate() - 2);
       
       // 提醒用戶現在取得的是前一天的資料
-      window.alert(`現在時間 ${currentHour}:${currentMinute.toString().padStart(2, '0')}，證交所資料尚未發布，取得 ${today.toISOString().slice(0, 10)} 的資料`);
+      console.log(`現在時間 ${currentHour}:${currentMinute.toString().padStart(2, '0')}，證交所資料尚未發布，取得 ${today.toISOString().slice(0, 10)} 的資料`);
     } else {
       // 14:00 後，查詢當天資料
       yesterday.setDate(yesterday.getDate() - 1);

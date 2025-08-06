@@ -103,7 +103,6 @@ async function handleRecommendationRequest(replyToken, userId) {
       console.log(`✅ 成功取得 ${allStocks.length} 筆股票資料`)
     } catch (error) {
       console.error('❌ 取得股票資料失敗:', error)
-      console.log('⚠️ 使用模擬資料作為備用')
       allStocks = []
     }
     
