@@ -1,7 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import crypto from 'crypto'
+import dotenv from 'dotenv'
 import { handleLineWebhook } from './src/api/webhook.mjs'
+
+// 載入環境變數
+dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -21,7 +25,7 @@ app.use(express.json())
 
 // 驗證 Line Webhook 簽名
 function verifyLineSignature(body, signature) {
-  const channelSecret = 'e72bbd8d2180d2c8d6403924426fa019' // 您的 Channel Secret
+  const channelSecret = process.env.LINE_CHANNEL_SECRET || 'e72bbd8d2180d2c8d6403924426fa019'
   const hash = crypto.createHmac('SHA256', channelSecret)
     .update(body, 'utf8')
     .digest('base64')

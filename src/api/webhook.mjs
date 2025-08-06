@@ -2,11 +2,10 @@
 import crypto from 'crypto'
 import { fetchStocks } from './stocks.js'
 
-// Line Bot 配置
+// Line Bot 配置 - 使用環境變數
 const LINE_CONFIG = {
-  // 新的 Channel Access Token
-  CHANNEL_ACCESS_TOKEN: 'Y6UlXr1cVuInoUj3+yWEM1Bg93ua5BdjwYBxk8iB2TuTsNR2U33hsj/NvTl0efi7PEOWHEx//1KMIUitcCH/YW1q5LzdSbM6qiiR2u/jTp83GYl9ZaH+Fhxc2PHRcLHrJCBi/EtqxBSC7dTxI9n6wgdB04t89/1O/w1cDnyilFU=',
-  CHANNEL_SECRET: 'e72bbd8d2180d2c8d6403924426fa019'
+  CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN || 'Y6UlXr1cVuInoUj3+yWEM1Bg93ua5BdjwYBxk8iB2TuTsNR2U33hsj/NvTl0efi7PEOWHEx//1KMIUitcCH/YW1q5LzdSbM6qiiR2u/jTp83GYl9ZaH+Fhxc2PHRcLHrJCBi/EtqxBSC7dTxI9n6wgdB04t89/1O/w1cDnyilFU=',
+  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || 'e72bbd8d2180d2c8d6403924426fa019'
 }
 
 // 處理 Line Webhook 事件
