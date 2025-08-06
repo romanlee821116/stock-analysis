@@ -22,11 +22,23 @@ function isCacheValid() {
 
 export async function fetchStocks() {
   try {
+    console.log('🔄 fetchStocks 被呼叫');
+    console.log('📦 當前快取狀態:', {
+      hasData: !!stockCache.data,
+      hasDate: !!stockCache.date,
+      hasTimestamp: !!stockCache.timestamp,
+      cacheDate: stockCache.date,
+      cacheTimestamp: stockCache.timestamp
+    });
+    
     // 檢查快取是否有效
     if (isCacheValid()) {
-      console.log('使用快取的股票資料');
+      console.log('✅ 使用快取的股票資料');
+      console.log(`📊 快取資料筆數: ${stockCache.data.length}`);
       return stockCache.data;
     }
+    
+    console.log('❌ 快取無效或不存在，重新取得資料');
     
     // 取得台灣時間（UTC+8）
     const now = new Date();
@@ -61,12 +73,15 @@ export async function fetchStocks() {
     const yesterdayDate = yesterday.toISOString().slice(0, 10).replace(/-/g, '');
     
     console.log(`📅 查詢日期: 今日=${date}, 昨日=${yesterdayDate}`);
+    console.log(`📅 快取日期: ${stockCache.date}`);
     
     // 檢查快取中的資料是否為相同日期
     if (stockCache.date === date) {
-      console.log('快取中的資料日期相同，直接使用快取');
+      console.log('✅ 快取中的資料日期相同，直接使用快取');
       return stockCache.data;
     }
+    
+    console.log('❌ 快取日期不匹配，重新取得資料');
     
     // const corsProxy = 'https://cors-anywhere.herokuapp.com/';
     const baseUrl = 'https://www.twse.com.tw/exchangeReport/MI_INDEX';
@@ -100,8 +115,12 @@ export async function fetchStocks() {
     const todayStocks = parseCSV(todayText);
     const yesterdayStocks = parseCSV(yesterdayText);
     
+    console.log(`📊 解析結果: 今日=${Object.keys(todayStocks).length} 筆, 昨日=${Object.keys(yesterdayStocks).length} 筆`);
+    
     // 合併資料
     const stocks = mergeStockData(todayStocks, yesterdayStocks, date);
+    
+    console.log(`📊 合併後資料筆數: ${stocks.length}`);
     
     // 如果是在 14:00 前取得的資料，在回傳資料中加入提醒
     if (isBeforeDataRelease) {
@@ -125,11 +144,18 @@ export async function fetchStocks() {
       timestamp: new Date().toISOString()
     };
     
-    console.log('股票資料已更新並快取');
+    console.log('✅ 股票資料已更新並快取');
+    console.log('📦 更新後快取狀態:', {
+      hasData: !!stockCache.data,
+      hasDate: !!stockCache.date,
+      hasTimestamp: !!stockCache.timestamp,
+      cacheDate: stockCache.date,
+      cacheTimestamp: stockCache.timestamp
+    });
     
     return stocks;
   } catch (error) {
-    console.error('取得股票資料時發生錯誤:', error);
+    console.error('❌ 取得股票資料時發生錯誤:', error);
     throw error;
   }
 }
