@@ -59,6 +59,25 @@ app.post('/webhook/line', async (req, res) => {
   }
 })
 
+// 根路徑端點
+app.get('/', (req, res) => {
+  res.json({
+    message: '🚀 Stock Analysis LINE Bot 伺服器運行中',
+    status: 'active',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      webhook: '/webhook/line',
+      health: '/health',
+      testToken: '/test-token'
+    },
+    info: {
+      service: 'LINE Bot Webhook Server',
+      version: '1.0.0',
+      description: '股票分析 LINE Bot 服務'
+    }
+  })
+})
+
 // 健康檢查端點
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
