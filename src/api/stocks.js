@@ -28,16 +28,21 @@ export async function fetchStocks() {
       return stockCache.data;
     }
     
-    // 取得現在時間
+    // 取得台灣時間（UTC+8）
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const taiwanTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 轉換為台灣時間
+    const currentHour = taiwanTime.getUTCHours();
+    const currentMinute = taiwanTime.getUTCMinutes();
+    
+    console.log(`🌍 伺服器時間: ${now.toISOString()}`);
+    console.log(`🇹🇼 台灣時間: ${taiwanTime.toISOString()}`);
+    console.log(`⏰ 台灣時間: ${currentHour}:${currentMinute.toString().padStart(2, '0')}`);
     
     // 判斷是否在 14:00 前（證交所資料發布時間）
     const isBeforeDataRelease = currentHour < 14;
     
-    // 計算要查詢的日期
-    let today = new Date();
+    // 計算要查詢的日期（使用台灣日期）
+    let today = new Date(taiwanTime);
     let yesterday = new Date(today);
     
     if (isBeforeDataRelease) {
@@ -55,6 +60,8 @@ export async function fetchStocks() {
     const date = today.toISOString().slice(0, 10).replace(/-/g, '');
     const yesterdayDate = yesterday.toISOString().slice(0, 10).replace(/-/g, '');
     
+    console.log(`📅 查詢日期: 今日=${date}, 昨日=${yesterdayDate}`);
+    
     // 檢查快取中的資料是否為相同日期
     if (stockCache.date === date) {
       console.log('快取中的資料日期相同，直接使用快取');
@@ -69,6 +76,8 @@ export async function fetchStocks() {
     const yesterdayUrl = `${baseUrl}?response=csv&date=${yesterdayDate}&type=ALLBUT0999`;
     
     console.log('正在從證交所取得最新股票資料...');
+    console.log(`📡 今日資料 URL: ${todayUrl}`);
+    console.log(`📡 昨日資料 URL: ${yesterdayUrl}`);
     
     // 使用 fetch 取得資料
     const [todayResponse, yesterdayResponse] = await Promise.all([
