@@ -3,9 +3,14 @@ import cors from 'cors'
 import crypto from 'crypto'
 import dotenv from 'dotenv'
 import { handleLineWebhook } from './src/api/webhook.mjs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 // 載入環境變數
 dotenv.config()
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -22,6 +27,9 @@ app.use(cors({
   credentials: true
 }))
 app.use(express.json())
+
+// 靜態檔案服務（前端建置檔案）
+app.use(express.static(path.join(__dirname, 'dist')))
 
 // 驗證 Line Webhook 簽名
 function verifyLineSignature(body, signature) {
@@ -99,11 +107,23 @@ app.get('/test-token', async (req, res) => {
   }
 })
 
+// 前端路由處理（SPA 支援）
+app.get('*', (req, res) => {
+  // 如果是 API 路由，不處理
+  if (req.path.startsWith('/webhook') || req.path.startsWith('/health') || req.path.startsWith('/test-token')) {
+    return res.status(404).json({ error: 'Not Found' })
+  }
+  
+  // 回傳前端 index.html
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+})
+
 // 啟動伺服器
 app.listen(PORT, () => {
   console.log(`🚀 Line Bot Webhook 伺服器運行在 http://localhost:${PORT}`)
   console.log(`📱 Webhook URL: http://localhost:${PORT}/webhook/line`)
   console.log(`💚 健康檢查: http://localhost:${PORT}/health`)
+  console.log(`🌐 前端網址: http://localhost:${PORT}`)
   console.log(`🌐 使用 ngrok: ngrok http ${PORT}`)
 })
 
