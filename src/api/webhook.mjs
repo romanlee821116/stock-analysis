@@ -71,7 +71,7 @@ async function processLineEvent(event) {
 
   console.log('❓ 不是推薦標的請求，回覆測試訊息')
   // 回覆測試訊息
-  await replyLineMessage(replyToken, `收到您的訊息：「${userMessage}」\n\n🌐 您可以前往前端網頁查看股票資料：\nhttps://stock-analysis-h13v.onrender.com/`)
+  await replyLineMessage(replyToken, '🌐 您可以前往網頁查看股票資料：\nhttps://stock-analysis-h13v.onrender.com/')
   
   return { status: 'test_reply', message: userMessage }
 }

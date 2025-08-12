@@ -59,14 +59,14 @@ export async function fetchStocks() {
     
     if (isBeforeDataRelease) {
       // 14:00 前，查詢前一天的資料
-      today.setDate(today.getDate() - 1);
-      yesterday.setDate(yesterday.getDate() - 2);
+      today = getPreviousTradingDay(today);
+      yesterday = getPreviousTradingDay(today);
       
       // 提醒用戶現在取得的是前一天的資料
       console.log(`現在時間 ${currentHour}:${currentMinute.toString().padStart(2, '0')}，證交所資料尚未發布，取得 ${today.toISOString().slice(0, 10)} 的資料`);
     } else {
       // 14:00 後，查詢當天資料
-      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday = getPreviousTradingDay(today);
     }
     
     const date = today.toISOString().slice(0, 10).replace(/-/g, '');
@@ -227,4 +227,17 @@ function mergeStockData(todayStocks, yesterdayStocks, date) {
   }
   
   return stocks;
-} 
+}
+
+// 取得前一個交易日（跳過週末）
+function getPreviousTradingDay(date) {
+  const result = new Date(date);
+  result.setDate(result.getDate() - 1);
+  
+  // 如果是週日 (0) 或週六 (6)，再往前推一天
+  while (result.getDay() === 0 || result.getDay() === 6) {
+    result.setDate(result.getDate() - 1);
+  }
+  
+  return result;
+}

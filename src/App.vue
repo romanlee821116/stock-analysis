@@ -33,8 +33,8 @@ const calculatePriceChange = (current, previous) => {
 const getPriceChangeClass = (change) => {
   if (!change) return ''
   const changeNum = parseFloat(change)
-  if (changeNum > 0) return 'price-up'
-  if (changeNum < 0) return 'price-down'
+  if (changeNum > 0) return 'price-down'
+  if (changeNum < 0) return 'price-up'
   return ''
 }
 const filter = () => {
@@ -119,61 +119,80 @@ onMounted(async () => {
 
 <template>
   <div id="app">
-    <h3>每日股票收盤價：{{ date }}</h3>
-    <div v-if="loading">載入中...</div>
-    <div v-else-if="error">{{ error }}</div>
-    <div v-else>
-      <div class="filter">
-        <div class="filter-inputs">
-          <div>
-            股票代號/名稱
-            <input type="text" v-model="symbol_filter" placeholder="輸入股票代號或名稱" />
+    <div class="header">
+      <h1>STOCK ANALYSIS</h1>
+      <div class="date">{{ date }}</div>
+    </div>
+    
+    <div v-if="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <div>Loading...</div>
+    </div>
+    
+    <div v-else-if="error" class="error">
+      {{ error }}
+    </div>
+    
+    <div v-else class="content">
+      <div class="filter-card">
+        <div class="filter-section">
+          <div class="filter-group">
+            <label>Stock Code/Name</label>
+            <input type="text" v-model="symbol_filter" placeholder="Enter stock code or name" />
           </div>
-          <div>
-            收盤價差(%)
-            <input type="number" v-model="price_diff" />
+          <div class="filter-group">
+            <label>Price Diff (%)</label>
+            <input type="number" v-model="price_diff" placeholder="Enter price diff (%)"/>
           </div>
-          <div>
-            交易量差(%)
-            <input type="number" v-model="trade_count_diff" />
+          <div class="filter-group">
+            <label>Volume Diff (%)</label>
+            <input type="number" v-model="trade_count_diff" placeholder="Enter volume diff (%)"/>
           </div>
         </div>
-        <div class="filter-buttons">
-          <button @click="defaultFilter">
-            預設篩選
+        
+        <div class="button-section">
+          <button class="btn btn-primary" @click="defaultFilter">
+            Default Filter
           </button>
-          <button @click="filter">
-            篩選
+          <button class="btn btn-secondary" @click="filter">
+            Filter
           </button>
-          <button @click="reset">
-            重置
+          <button class="btn btn-outline" @click="reset">
+            Reset
           </button>
         </div>
       </div>
+      
       <div class="table-container">
+        <div class="table-header">
+          <div class="result-count">
+            {{ display_stocks.length }} results
+            <span v-if="display_stocks.length !== stocks.length" class="total-count">
+              (of {{ stocks.length }} total)
+            </span>
+          </div>
+        </div>
         <table>
           <thead>
             <tr>
-              <!-- <th>日期</th> -->
-              <th>股票代號</th>
-              <th>名稱</th>
-              <th>收盤價</th>
-              <th>昨日收盤價</th>
-              <th>漲跌幅(%)</th>
-              <th>當日成交筆數</th>
-              <th>昨日成交筆數</th>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Change (%)</th>
+              <th>Close</th>
+              <th>Prev Close</th>
+              <th>Trade Count</th>
+              <th>Prev Trade Count</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="stock in display_stocks" :key="stock.symbol">
-              <!-- <td>{{ stock.date }}</td> -->
               <td>{{ stock.symbol }}</td>
               <td>{{ stock.name }}</td>
-              <td>{{ stock.close }}</td>
-              <td>{{ stock.prev_close ?? '-' }}</td>
               <td :class="getPriceChangeClass(calculatePriceChange(stock.close, stock.prev_close))">
                 {{ calculatePriceChange(stock.close, stock.prev_close) ?? '-' }}
               </td>
+              <td>{{ stock.close }}</td>
+              <td>{{ stock.prev_close ?? '-' }}</td>
               <td>{{ stock.trade_count ?? '-' }}</td>
               <td>{{ stock.prev_trade_count ?? '-' }}</td>
             </tr>
@@ -185,7 +204,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* 全域樣式 - 防止水平滾動 */
+/* 全域樣式 - 深色主題 */
 * {
   box-sizing: border-box;
 }
@@ -193,244 +212,296 @@ onMounted(async () => {
 body {
   overflow-x: hidden;
   max-width: 100vw;
+  background: #000;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 #app {
-  overflow-x: hidden;
-  padding: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  padding: 1rem;
 }
 
-/* 確保主要容器不會超出螢幕 */
-div {
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-  margin-top: 2em;
-  max-width: 100%;
-}
-
-/* 表格容器 - 允許水平滾動 */
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-  margin-top: 2em;
-}
-
-/* 表格本身 - 設定最小寬度確保內容完整顯示 */
-table {
-  min-width: 800px; /* 確保所有欄位都能顯示 */
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 0;
-}
-thead {
-  color: #000;
-}
-th, td {
-  border: 1px solid #ccc;
-  padding: 0.5em 1em;
+/* 標題區域 */
+.header {
   text-align: center;
-}
-th {
-  background: #f5f5f5;
-}
-.filter {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1em;
-  padding: 1em;
-  background: #f9f9f9;
-  border-radius: 8px;
-  color: #000;
-  gap: 1em;
+  margin-bottom: 2rem;
+  padding: 1rem 0;
 }
 
-.filter-inputs {
-  display: flex;
-  gap: 1em;
-  flex-wrap: wrap;
-  flex: 1;
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, #fff 0%, #ccc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.filter-inputs > div {
+.date {
+  font-size: 0.9rem;
+  color: #888;
+  margin-top: 0.5rem;
+}
+
+/* 載入狀態 */
+.loading {
   display: flex;
   flex-direction: column;
-  gap: 0.5em;
-  min-width: 150px;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #888;
 }
 
-.filter-buttons {
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #333;
+  border-top: 3px solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 錯誤狀態 */
+.error {
+  background: rgba(255, 59, 48, 0.1);
+  border: 1px solid rgba(255, 59, 48, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  color: #ff3b30;
+  text-align: center;
+}
+
+/* 內容區域 */
+.content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* 篩選卡片 */
+.filter-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.filter-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-group {
   display: flex;
-  gap: 0.5em;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.filter-group input {
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.filter-group input::placeholder {
+  color: #666;
+}
+
+.filter-group input:focus {
+  outline: none;
+  border-color: #007aff;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+/* 按鈕區域 */
+.button-section {
+  display: flex;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  align-items: flex-start;
+  justify-content: center;
 }
 
-.filter input {
-  padding: 0.5em;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  min-width: 120px;
-}
-
-.filter button {
-  padding: 0.5em 1em;
+.btn {
+  padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 4px;
-  background: #ccc;
-  color: white;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
   white-space: nowrap;
 }
 
-.filter button:hover {
-  background: #444;
+.btn-primary {
+  background: linear-gradient(135deg, #007aff 0%, #0056b3 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
 }
 
-/* RWD 佈局 - 螢幕寬度小於 575px */
-@media (max-width: 575px) {
-  .filter {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  
-  .filter-inputs {
-    order: 1;
-    margin-bottom: 1em;
-    width: 100%;
-  }
-  
-  .filter-buttons {
-    order: 2;
-    justify-content: center;
-    width: 100%;
-  }
-  
-  .filter-inputs > div {
-    min-width: 100%;
-    width: 100%;
-  }
-  
-  .filter input {
-    min-width: 100%;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  
-  /* 表格容器在小螢幕時的處理 */
-  .table-container {
-    width: 100%;
-    overflow-x: auto;
-    margin-top: 1em;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-  
-  /* 表格在小螢幕時的處理 */
-  table {
-    min-width: 600px; /* 小螢幕時的最小寬度 */
-    width: 100%;
-    font-size: 0.8em;
-    margin-top: 0;
-  }
-  
-  /* 表格內容在小螢幕時的處理 */
-  th, td {
-    min-width: 50px;
-    max-width: 100px;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    padding: 0.3em 0.5em;
-    font-size: 0.9em;
-  }
-  
-  /* 確保整個頁面不會水平滾動 */
-  body {
-    overflow-x: hidden;
-  }
-  
-  /* 確保容器不會超出螢幕 */
-  div {
-    max-width: 100vw;
-    box-sizing: border-box;
-  }
-  
-  /* 標題在小螢幕上的處理 */
-  h3 {
-    font-size: 1.2em;
-    margin: 0.5em 0;
-  }
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #34c759 0%, #28a745 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.4);
+}
+
+.btn-outline {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* 表格容器 */
+.table-container {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 表格標題區域 */
+.table-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.result-count {
+  font-size: 0.9rem;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.total-count {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+thead {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+th {
+  padding: 1rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #ccc;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+td {
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 /* 漲跌顏色樣式 */
 .price-up {
-  color: #ff4444;
-  font-weight: bold;
+  color: #34c759;  /* 綠色 - 用於跌幅 */
+  font-weight: 600;
 }
 
 .price-down {
-  color: #44aa44;
-  font-weight: bold;
+  color: #ff3b30;  /* 紅色 - 用於漲幅 */
+  font-weight: 600;
 }
 
-/* 漲跌幅欄位特殊樣式 */
-td:nth-child(5) {
-  font-weight: bold;
+/* RWD 佈局 */
+@media (max-width: 768px) {
+  #app {
+    padding: 0.5rem;
+  }
+  
+  .header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .filter-section {
+    grid-template-columns: 1fr;
+  }
+  
+  .button-section {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+  
+  .table-container {
+    overflow-x: auto;
+  }
+  
+  table {
+    min-width: 600px;
+    font-size: 0.8rem;
+  }
+  
+  th, td {
+    padding: 0.5rem;
+  }
 }
 
-/* Line 按鈕樣式 */
-.line-button {
-  background: #00c300 !important;
-  color: white !important;
-}
-
-.line-button:hover {
-  background: #009900 !important;
-}
-
-.line-button:disabled {
-  background: #ccc !important;
-  cursor: not-allowed;
-}
-
-/* Line 訊息樣式 */
-.line-message {
-  margin: 1em 0;
-  padding: 0.75em;
-  border-radius: 4px;
-  background: #f0f8ff;
-  border-left: 4px solid #00c300;
-  color: #333;
-  white-space: pre-wrap;
-  font-family: monospace;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-/* 測試按鈕樣式 */
-.test-button {
-  background: #ff9500 !important;
-  color: white !important;
-}
-
-.test-button:hover {
-  background: #e6850e !important;
-}
-
-/* 說明按鈕樣式 */
-.help-button {
-  background: #007aff !important;
-  color: white !important;
-}
-
-.help-button:hover {
-  background: #0056b3 !important;
+@media (max-width: 575px) {
+  .filter-card {
+    padding: 1rem;
+  }
+  
+  .header {
+    margin-bottom: 1rem;
+  }
+  
+  .header h1 {
+    font-size: 1.25rem;
+  }
 }
 </style>
