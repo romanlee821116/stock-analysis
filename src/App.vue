@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { fetchStocks } from './api/stocks.js'
 
 const stocks = ref([]);
+const isYesterdayData = ref(false);
 const display_stocks = ref([]);
 const loading = ref(true)
 const error = ref('')
@@ -98,16 +99,19 @@ onMounted(async () => {
       const data = JSON.parse(window.sessionStorage.getItem('stocks'))
       if (data.date === date) {
         stocks.value = data.stocks
+        isYesterdayData.value = data.isYesterdayData
         display_stocks.value = stocks.value
         return
       }
     }
     const data = await fetchStocks()
     window.sessionStorage.setItem('stocks', JSON.stringify({
-      date: date,
-      stocks: data
+      date: date.date,
+      isYesterdayData: data.isYesterdayData,
+      stocks: data.data,
     }))
-    stocks.value = data
+    stocks.value = data.data
+    isYesterdayData.value = data.isYesterdayData
     display_stocks.value = stocks.value
   } catch (e) {
     error.value = e.message
@@ -122,6 +126,12 @@ onMounted(async () => {
     <div class="header">
       <h1>STOCK ANALYSIS</h1>
       <div class="date">{{ date }}</div>
+      <div
+        v-if="isYesterdayData"
+        class="error"
+      >
+        Today's stock data is not available yet. Now is showing yesterday's data.
+      </div>
     </div>
     
     <div v-if="loading" class="loading">
@@ -279,6 +289,8 @@ body {
   padding: 1rem;
   color: #ff3b30;
   text-align: center;
+  width: fit-content;
+  margin: 24px auto;
 }
 
 /* 內容區域 */

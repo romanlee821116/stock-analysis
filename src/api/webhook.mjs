@@ -4,8 +4,8 @@ import { fetchStocks } from './stocks.js'
 
 // Line Bot 配置 - 使用環境變數
 const LINE_CONFIG = {
-  CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN || 'Y6UlXr1cVuInoUj3+yWEM1Bg93ua5BdjwYBxk8iB2TuTsNR2U33hsj/NvTl0efi7PEOWHEx//1KMIUitcCH/YW1q5LzdSbM6qiiR2u/jTp83GYl9ZaH+Fhxc2PHRcLHrJCBi/EtqxBSC7dTxI9n6wgdB04t89/1O/w1cDnyilFU=',
-  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || 'e72bbd8d2180d2c8d6403924426fa019'
+  CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET
 }
 
 // 處理 Line Webhook 事件
@@ -65,12 +65,8 @@ async function processLineEvent(event) {
 
   // 檢查是否為推薦標的的關鍵字
   if (isRecommendationRequest(userMessage)) {
-    console.log('🎯 檢測到推薦標的請求')
     return await handleRecommendationRequest(replyToken, userId)
   }
-
-  console.log('❓ 不是推薦標的請求，回覆測試訊息')
-  // 回覆測試訊息
   await replyLineMessage(replyToken, '🌐 您可以前往網頁查看股票資料：\nhttps://stock-analysis-h13v.onrender.com/')
   
   return { status: 'test_reply', message: userMessage }

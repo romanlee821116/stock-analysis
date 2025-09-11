@@ -51,7 +51,7 @@ export async function fetchStocks() {
     console.log(`⏰ 台灣時間: ${currentHour}:${currentMinute.toString().padStart(2, '0')}`);
     
     // 判斷是否在 14:00 前（證交所資料發布時間）
-    const isBeforeDataRelease = currentHour < 14;
+    const isBeforeDataRelease = currentHour < 15;
     
     // 計算要查詢的日期（使用台灣日期）
     let today = new Date(taiwanTime);
@@ -72,9 +72,6 @@ export async function fetchStocks() {
     const date = today.toISOString().slice(0, 10).replace(/-/g, '');
     const yesterdayDate = yesterday.toISOString().slice(0, 10).replace(/-/g, '');
     
-    console.log(`📅 查詢日期: 今日=${date}, 昨日=${yesterdayDate}`);
-    console.log(`📅 快取日期: ${stockCache.date}`);
-    
     // 檢查快取中的資料是否為相同日期
     if (stockCache.date === date) {
       console.log('✅ 快取中的資料日期相同，直接使用快取');
@@ -83,16 +80,12 @@ export async function fetchStocks() {
     
     console.log('❌ 快取日期不匹配，重新取得資料');
     
-    // const corsProxy = 'https://cors-anywhere.herokuapp.com/';
     const baseUrl = 'https://www.twse.com.tw/exchangeReport/MI_INDEX';
     
     // 取得今日資料
     const todayUrl = `${baseUrl}?response=csv&date=${date}&type=ALLBUT0999`;
     const yesterdayUrl = `${baseUrl}?response=csv&date=${yesterdayDate}&type=ALLBUT0999`;
     
-    console.log('正在從證交所取得最新股票資料...');
-    console.log(`📡 今日資料 URL: ${todayUrl}`);
-    console.log(`📡 昨日資料 URL: ${yesterdayUrl}`);
     
     // 使用 fetch 取得資料
     const [todayResponse, yesterdayResponse] = await Promise.all([
@@ -119,41 +112,17 @@ export async function fetchStocks() {
     
     // 合併資料
     const stocks = mergeStockData(todayStocks, yesterdayStocks, date);
-    
-    console.log(`📊 合併後資料筆數: ${stocks.length}`);
-    
-    // 如果是在 14:00 前取得的資料，在回傳資料中加入提醒
-    if (isBeforeDataRelease) {
-      stocks.metadata = {
-        isYesterdayData: true,
-        message: `現在時間 ${currentHour}:${currentMinute.toString().padStart(2, '0')}，證交所資料尚未發布，此為 ${today.toISOString().slice(0, 10)} 的資料`,
-        dataDate: today.toISOString().slice(0, 10)
-      };
-    } else {
-      stocks.metadata = {
-        isYesterdayData: false,
-        message: `取得 ${today.toISOString().slice(0, 10)} 的最新資料`,
-        dataDate: today.toISOString().slice(0, 10)
-      };
-    }
-    
+
     // 更新快取
     stockCache = {
       data: stocks,
+      isYesterdayData: isBeforeDataRelease,
       date: date,
       timestamp: new Date().toISOString()
     };
-    
     console.log('✅ 股票資料已更新並快取');
-    console.log('📦 更新後快取狀態:', {
-      hasData: !!stockCache.data,
-      hasDate: !!stockCache.date,
-      hasTimestamp: !!stockCache.timestamp,
-      cacheDate: stockCache.date,
-      cacheTimestamp: stockCache.timestamp
-    });
     
-    return stocks;
+    return stockCache;
   } catch (error) {
     console.error('❌ 取得股票資料時發生錯誤:', error);
     throw error;
