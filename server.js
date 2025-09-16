@@ -33,7 +33,10 @@ app.use(express.static(path.join(__dirname, 'dist')))
 
 // 驗證 Line Webhook 簽名
 function verifyLineSignature(body, signature) {
-  const channelSecret = process.env.LINE_CHANNEL_SECRET || 'e72bbd8d2180d2c8d6403924426fa019'
+  const channelSecret = process.env.LINE_CHANNEL_SECRET
+  if (!channelSecret) {
+    throw new Error('LINE_CHANNEL_SECRET 環境變數未設定')
+  }
   const hash = crypto.createHmac('SHA256', channelSecret)
     .update(body, 'utf8')
     .digest('base64')
@@ -124,7 +127,6 @@ app.listen(PORT, () => {
   console.log(`📱 Webhook URL: http://localhost:${PORT}/webhook/line`)
   console.log(`💚 健康檢查: http://localhost:${PORT}/health`)
   console.log(`🌐 前端網址: http://localhost:${PORT}`)
-  console.log(`🌐 使用 ngrok: ngrok http ${PORT}`)
 })
 
 export default app 

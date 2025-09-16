@@ -1,10 +1,10 @@
 // Line Bot 配置
 export const LINE_CONFIG = {
   // Line Bot 配置 - 使用環境變數
-  CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN || 'Y6UlXr1cVuInoUj3+yWEM1Bg93ua5BdjwYBxk8iB2TuTsNR2U33hsj/NvTl0efi7PEOWHEx//1KMIUitcCH/YW1q5LzdSbM6qiiR2u/jTp83GYl9ZaH+Fhxc2PHRcLHrJCBi/EtqxBSC7dTxI9n6wgdB04t89/1O/w1cDnyilFU=',
-  USER_ID: process.env.LINE_USER_ID || 'YOUR_LINE_USER_ID',
-  CHANNEL_ID: process.env.LINE_CHANNEL_ID || '2007880882',
-  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || 'e72bbd8d2180d2c8d6403924426fa019',
+  CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
+  USER_ID: process.env.LINE_USER_ID || '',
+  CHANNEL_ID: process.env.LINE_CHANNEL_ID || '',
+  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || '',
   
   // Line Bot 設定說明
   SETUP_INSTRUCTIONS: `
@@ -19,6 +19,7 @@ export const LINE_CONFIG = {
        - LINE_CHANNEL_ACCESS_TOKEN
        - LINE_CHANNEL_SECRET
        - LINE_USER_ID (可選)
+       - LINE_CHANNEL_ID (可選)
     
     如何取得您的 Line User ID：
     1. 將您的 Line Bot 加入好友
@@ -31,13 +32,13 @@ export const LINE_CONFIG = {
 export function validateLineConfig() {
   const { CHANNEL_ACCESS_TOKEN, CHANNEL_SECRET } = LINE_CONFIG
   
-  if (!CHANNEL_ACCESS_TOKEN || CHANNEL_ACCESS_TOKEN === 'YOUR_LINE_CHANNEL_ACCESS_TOKEN') {
+  if (!CHANNEL_ACCESS_TOKEN) {
     throw new Error('請先設定 LINE_CHANNEL_ACCESS_TOKEN 環境變數')
   }
   
-  if (!CHANNEL_SECRET || CHANNEL_SECRET === 'YOUR_LINE_CHANNEL_SECRET') {
+  if (!CHANNEL_SECRET) {
     throw new Error('請先設定 LINE_CHANNEL_SECRET 環境變數')
   }
   
   return true
-} 
+}
