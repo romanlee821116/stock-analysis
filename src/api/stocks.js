@@ -1,43 +1,19 @@
 // 股票資料 API
 
-// 快取機制
-let stockCache = {
-  data: null,
-  date: null,
-  timestamp: null
-};
-
 // 檢查快取是否有效（一天內）
-function isCacheValid() {
-  if (!stockCache.data || !stockCache.timestamp) {
-    return false;
-  }
-  
-  const now = new Date();
-  const cacheTime = new Date(stockCache.timestamp);
-  const oneDayInMs = 24 * 60 * 60 * 1000; // 24小時的毫秒數
-  
-  return (now - cacheTime) < oneDayInMs;
+function isCacheValid(stockCache) {
+  return stockCache.dateDetail?.today === formatDate(new Date())
 }
 
 export async function fetchStocks() {
   try {
-    console.log('🔄 fetchStocks 被呼叫');
-    console.log('📦 當前快取狀態:', {
-      hasData: !!stockCache.data,
-      hasDate: !!stockCache.date,
-      hasTimestamp: !!stockCache.timestamp,
-      cacheDate: stockCache.date,
-      cacheTimestamp: stockCache.timestamp
-    });
-    
+    const stockCache = JSON.parse(window.sessionStorage.getItem('stocks')) || {}
     // 檢查快取是否有效
-    if (isCacheValid()) {
-      console.log('✅ 使用快取的股票資料');
-      console.log(`📊 快取資料筆數: ${stockCache.data.length}`);
-      return stockCache.data;
+    if (isCacheValid(stockCache)) {
+      console.log(`✅ 快取有效，使用快取資料${formatDate(new Date())}`);
+      return stockCache
     }
-    
+
     console.log('❌ 快取無效或不存在，重新取得資料');
     
     // 取得台灣時間（UTC+8）
@@ -46,11 +22,7 @@ export async function fetchStocks() {
     const currentHour = taiwanTime.getUTCHours();
     const currentMinute = taiwanTime.getUTCMinutes();
     
-    console.log(`🌍 伺服器時間: ${now.toISOString()}`);
-    console.log(`🇹🇼 台灣時間: ${taiwanTime.toISOString()}`);
-    console.log(`⏰ 台灣時間: ${currentHour}:${currentMinute.toString().padStart(2, '0')}`);
-    
-    // 判斷是否在 14:00 前（證交所資料發布時間）
+    // 判斷是否在 15:00 前（證交所資料發布時間）
     const isBeforeDataRelease = currentHour < 15;
     
     // 計算要查詢的日期（使用台灣日期）
@@ -58,7 +30,7 @@ export async function fetchStocks() {
     let yesterday = new Date(today);
     
     if (isBeforeDataRelease) {
-      // 14:00 前，查詢前一天的資料
+      // 15:00 前，查詢前一天的資料
       today = getPreviousTradingDay(today);
       yesterday = getPreviousTradingDay(today);
       
@@ -68,61 +40,38 @@ export async function fetchStocks() {
       // 14:00 後，查詢當天資料
       yesterday = getPreviousTradingDay(today);
     }
-    
-    const date = today.toISOString().slice(0, 10).replace(/-/g, '');
-    const yesterdayDate = yesterday.toISOString().slice(0, 10).replace(/-/g, '');
-    
-    // 檢查快取中的資料是否為相同日期
-    if (stockCache.date === date) {
-      console.log('✅ 快取中的資料日期相同，直接使用快取');
-      return stockCache.data;
-    }
-    
-    console.log('❌ 快取日期不匹配，重新取得資料');
-    
-    const baseUrl = 'https://www.twse.com.tw/exchangeReport/MI_INDEX';
-    
-    // 取得今日資料
-    const todayUrl = `${baseUrl}?response=csv&date=${date}&type=ALLBUT0999`;
-    const yesterdayUrl = `${baseUrl}?response=csv&date=${yesterdayDate}&type=ALLBUT0999`;
-    
-    
-    // 使用 fetch 取得資料
-    const [todayResponse, yesterdayResponse] = await Promise.all([
-      fetch(todayUrl),
-      fetch(yesterdayUrl)
-    ]);
-    
-    if (!todayResponse.ok || !yesterdayResponse.ok) {
-      throw new Error('無法取得股票資料');
-    }
-    
-    const todayBuffer = await todayResponse.arrayBuffer();
-    const yesterdayBuffer = await yesterdayResponse.arrayBuffer();
-    
-    // 將 Big5 編碼轉換為 UTF-8
-    const todayText = new TextDecoder('big5').decode(todayBuffer);
-    const yesterdayText = new TextDecoder('big5').decode(yesterdayBuffer);
-    
-    // 解析 CSV 資料
-    const todayStocks = parseCSV(todayText);
-    const yesterdayStocks = parseCSV(yesterdayText);
-    
-    console.log(`📊 解析結果: 今日=${Object.keys(todayStocks).length} 筆, 昨日=${Object.keys(yesterdayStocks).length} 筆`);
-    
-    // 合併資料
-    const stocks = mergeStockData(todayStocks, yesterdayStocks, date);
 
-    // 更新快取
-    stockCache = {
+    // 1. 先嘗試取得 today 資料，如果沒有則往前扣到有資料為止
+    const actualTodayDate = await fetchDataWithFallback(formatDate(today), 'today');    
+    // 2. 從 actualTodayDate 往前扣一天取得 yesterday 資料
+    const actualYesterdayDate = await fetchDataWithFallback(
+      getPreviousTradingDay(new Date(actualTodayDate.slice(0,4) + '-' + actualTodayDate.slice(4,6) + '-' + actualTodayDate.slice(6,8))), 
+      'yesterday'
+    );
+    
+    // 3. 取得實際的股票資料
+    const [todayStocks, yesterdayStocks] = await Promise.all([
+      fetchTWSEData(actualTodayDate),
+      fetchTWSEData(actualYesterdayDate)
+    ]);    
+    // 合併資料
+    const stocks = mergeStockData(todayStocks, yesterdayStocks, actualTodayDate);
+
+     // 更新快取
+    const cacheData = {
       data: stocks,
       isYesterdayData: isBeforeDataRelease,
-      date: date,
+      date: actualTodayDate,
+      dateDetail: {
+        today: actualTodayDate,
+        yesterday: actualYesterdayDate
+      },
       timestamp: new Date().toISOString()
     };
-    console.log('✅ 股票資料已更新並快取');
+    window.sessionStorage.setItem('stocks', JSON.stringify(cacheData));
     
-    return stockCache;
+    return cacheData;
+    
   } catch (error) {
     console.error('❌ 取得股票資料時發生錯誤:', error);
     throw error;
@@ -174,6 +123,75 @@ function parseCSVLine(line) {
   
   fields.push(current);
   return fields;
+}
+
+// 抓取 TWSE CSV & 轉換
+async function fetchTWSEData(date) {
+  const url = `https://www.twse.com.tw/exchangeReport/MI_INDEX?response=csv&date=${date}&type=ALLBUT0999`;
+  const res = await fetch(url);
+  if (!res.ok) return {};
+
+  const buffer = await res.arrayBuffer();
+  const text = new TextDecoder('big5').decode(buffer);
+
+  const data = parseCSV(text);
+  return data && Object.keys(data).length > 0 ? data : {};
+}
+
+// 帶 fallback 的資料獲取函數
+async function fetchDataWithFallback(startDate, type) {
+  const maxRetries = 10; // 最多往前推10天
+  let currentDate = startDate;
+  let attempt = 0;
+  
+  // 如果是 Date 物件，轉換為字串格式
+  if (currentDate instanceof Date) {
+    currentDate = formatDate(currentDate);
+  }
+  
+  console.log(`🔍 開始尋找 ${type} 資料，起始日期: ${currentDate}`);
+  
+  while (attempt < maxRetries) {
+    console.log(`📅 嘗試取得 ${type} 資料 (第${attempt + 1}次): ${currentDate}`);
+    
+    const data = await fetchTWSEData(currentDate);
+    
+    if (Object.keys(data).length > 0) {
+      console.log(`✅ 成功取得 ${type} 資料: ${currentDate} (${Object.keys(data).length} 筆)`);
+      return currentDate;
+    }
+    
+    console.warn(`⚠️ ${currentDate} 無 ${type} 資料，往前推一天重試`);
+    
+    // 往前推一天
+    attempt++;
+    currentDate = getPreviousTradingDayString(currentDate);
+  }
+  
+  throw new Error(`連續 ${maxRetries} 天無法取得 ${type} 資料，可能連續停市`);
+}
+
+// 取得前一個交易日（字串版本）
+function getPreviousTradingDayString(dateString) {
+  const y = dateString.slice(0, 4);
+  const m = dateString.slice(4, 6);
+  const d = dateString.slice(6, 8);
+  const date = new Date(`${y}-${m}-${d}`);
+  
+  // 往前推一天
+  date.setDate(date.getDate() - 1);
+  
+  // 跳過週末
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() - 1);
+  }
+  
+  return formatDate(date);
+}
+
+// 格式化日期為 YYYYMMDD
+function formatDate(date) {
+  return date.toISOString().slice(0, 10).replace(/-/g, '');
 }
 
 // 合併今日與昨日資料

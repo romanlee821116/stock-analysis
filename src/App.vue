@@ -1,17 +1,23 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { fetchStocks } from './api/stocks.js'
+import { callGemini } from './api/gemini.js'
 
 const stocks = ref([]);
 const isYesterdayData = ref(false);
-const display_stocks = ref([]);
+const displayStocks = ref([]);
 const loading = ref(true)
 const error = ref('')
 const date = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })
-const price_diff = ref(null)
-const trade_count_diff = ref(null)
+const priceDiff = ref(null)
+const tradeCountDiff = ref(null)
 const symbol_filter = ref('')
-// 監聽股票代號篩選的變化
+const dateDetail = ref({})
+const isClassifying = ref(false)
+const aiResult = ref({})
+const geminiApiKey = ref('')
+const isShowAiModel = ref(false)
+
 watch(symbol_filter, () => {
   filter()
 })
@@ -41,10 +47,10 @@ const getPriceChangeClass = (change) => {
 const filter = () => {
   const pattern = /^\d+(\.\d+)?$/
   // 檢查是否為有效數字
-  if (price_diff.value && isNaN(price_diff.value)) {
+  if (priceDiff.value && isNaN(priceDiff.value)) {
     return
   }
-  if (trade_count_diff.value && isNaN(trade_count_diff.value)) {
+  if (tradeCountDiff.value && isNaN(tradeCountDiff.value)) {
     return
   }
   
@@ -58,61 +64,80 @@ const filter = () => {
   }
   
   // 再根據價格和交易量篩選
-  if (price_diff.value && !trade_count_diff.value) {
+  if (priceDiff.value && !tradeCountDiff.value) {
     filteredStocks = filteredStocks.filter(stock => {
       const priceChange = calculatePriceChange(stock.close, stock.prev_close)
-      return priceChange && parseFloat(priceChange) > price_diff.value
+      return priceChange && parseFloat(priceChange) > priceDiff.value
     });
   }
-  if (!price_diff.value && trade_count_diff.value) {
+  if (!priceDiff.value && tradeCountDiff.value) {
     filteredStocks = filteredStocks.filter(stock => {
       const tradeCountChange = (toNumber(stock.trade_count) - toNumber(stock.prev_trade_count)) / toNumber(stock.prev_trade_count) * 100
-      return tradeCountChange > trade_count_diff.value
+      return tradeCountChange > tradeCountDiff.value
     });
   }
-  if (price_diff.value && trade_count_diff.value) {
+  if (priceDiff.value && tradeCountDiff.value) {
     filteredStocks = filteredStocks.filter(stock => {
       const priceChange = calculatePriceChange(stock.close, stock.prev_close)
       const tradeCountChange = (toNumber(stock.trade_count) - toNumber(stock.prev_trade_count)) / toNumber(stock.prev_trade_count) * 100
-      return priceChange && parseFloat(priceChange) > price_diff.value && tradeCountChange > trade_count_diff.value
+      return priceChange && parseFloat(priceChange) > priceDiff.value && tradeCountChange > tradeCountDiff.value
     });
   }
   
-  display_stocks.value = filteredStocks
+  displayStocks.value = filteredStocks
 }
 const defaultFilter = () => {
-  price_diff.value = 4.5
-  trade_count_diff.value = 50
+  priceDiff.value = 4.5
+  tradeCountDiff.value = 50
   filter()
 }
 const reset = () => {
-  display_stocks.value = stocks.value
-  trade_count_diff.value = null
-  price_diff.value = null
+  displayStocks.value = stocks.value
+  tradeCountDiff.value = null
+  priceDiff.value = null
   symbol_filter.value = ''
-};
+  aiResult.value = {}
+}
+const aiAnalysis = async () => {
+  const sessionData = JSON.parse(window.sessionStorage.getItem('aiResult'))
+  if (sessionData?.searchDate === dateDetail.value.today) {
+    const data = sessionData.filter(item => item.priceDiff === priceDiff.value && item.tradeCountDiff === tradeCountDiff.value)
+    if (data.length > 0) {
+      aiResult.value = data.result
+      loading.value = false
+      isClassifying.value = false
+      return
+    }
+  }
+  isShowAiModel.value = false
+  loading.value = true
+  isClassifying.value = true
+  const prompt = displayStocks.value.map(item => `${item.symbol}${item.name}`).join(', ')
+  const result = await callGemini(prompt, geminiApiKey.value)
+
+  if (sessionData === null || sessionData.searchDate !== dateDetail.value.today) {
+    sessionData.searchDate = dateDetail.value.today
+    sessionData.data = []
+  }
+  sessionData.data.push({
+    priceDiff: priceDiff.value,
+    tradeCountDiff: tradeCountDiff.value,
+    result,
+  })
+  window.sessionStorage.setItem('aiResult', JSON.stringify(sessionData))
+  aiResult.value = result
+  loading.value = false
+  isClassifying.value = false
+}
 
 
 onMounted(async () => {
   try {
-    if (window.sessionStorage.getItem('stocks')) {
-      const data = JSON.parse(window.sessionStorage.getItem('stocks'))
-      if (data.date === date) {
-        stocks.value = data.stocks
-        isYesterdayData.value = data.isYesterdayData
-        display_stocks.value = stocks.value
-        return
-      }
-    }
     const data = await fetchStocks()
-    window.sessionStorage.setItem('stocks', JSON.stringify({
-      date: date.date,
-      isYesterdayData: data.isYesterdayData,
-      stocks: data.data,
-    }))
     stocks.value = data.data
+    dateDetail.value = data.dateDetail
     isYesterdayData.value = data.isYesterdayData
-    display_stocks.value = stocks.value
+    displayStocks.value = stocks.value
   } catch (e) {
     error.value = e.message
   } finally {
@@ -131,6 +156,24 @@ onMounted(async () => {
         class="error"
       >
         Today's stock data is not available yet. Now is showing yesterday's data.
+      </div>
+    </div>
+
+    <div
+      v-if="isShowAiModel"
+      class="model-container"
+      @click.self="isShowAiModel = false"
+    >
+      <div class="model-content">
+        <div class="model-header">
+          <h2>Enter gemini api key</h2>
+        </div>
+        <div class="model-body">
+          <input type="text" v-model="geminiApiKey" placeholder="Enter gemini api key" />
+          <button class="btn btn-primary" @click="aiAnalysis">
+            Confirm
+          </button>
+        </div>
       </div>
     </div>
     
@@ -152,11 +195,11 @@ onMounted(async () => {
           </div>
           <div class="filter-group">
             <label>Price Diff (%)</label>
-            <input type="number" v-model="price_diff" placeholder="Enter price diff (%)"/>
+            <input type="number" v-model="priceDiff" placeholder="Enter price diff (%)"/>
           </div>
           <div class="filter-group">
             <label>Volume Diff (%)</label>
-            <input type="number" v-model="trade_count_diff" placeholder="Enter volume diff (%)"/>
+            <input type="number" v-model="tradeCountDiff" placeholder="Enter volume diff (%)"/>
           </div>
         </div>
         
@@ -170,14 +213,48 @@ onMounted(async () => {
           <button class="btn btn-outline" @click="reset">
             Reset
           </button>
+          <button 
+            v-if="priceDiff || tradeCountDiff"
+            class="btn btn-ai" 
+            @click="isShowAiModel = true"
+            :disabled="isClassifying || displayStocks.length === 0"
+          >
+            {{ isClassifying ? 'AI 分類中...' : 'AI 產業分類' }}
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-if="Object.keys(aiResult).length > 0"
+        class="ai-data-container"
+      >
+        <div
+          v-for="industry in Object.keys(aiResult.stocks)"
+          :key="industry"
+          class="ai-industry"
+        >
+          <h2>{{ industry }}</h2>
+          <ul>
+            <li v-for="stock in aiResult.stocks[industry]" :key="stock.code">
+              {{ `${stock.code} ${stock.name}: ${stock.summary}` }}
+            </li>
+          </ul>
+        </div>
+        <div class="ai-recommendations">
+          <h2>推薦標的</h2>
+          <ul>
+            <li v-for="recommendation in aiResult.recommendations" :key="recommendation.code">
+              {{ `${recommendation.code} ${recommendation.name}: ${recommendation.reason}` }}
+            </li>
+          </ul>
         </div>
       </div>
       
       <div class="table-container">
         <div class="table-header">
           <div class="result-count">
-            {{ display_stocks.length }} results
-            <span v-if="display_stocks.length !== stocks.length" class="total-count">
+            {{ displayStocks.length }} results
+            <span v-if="displayStocks.length !== stocks.length" class="total-count">
               (of {{ stocks.length }} total)
             </span>
           </div>
@@ -188,14 +265,14 @@ onMounted(async () => {
               <th>Code</th>
               <th>Name</th>
               <th>Change (%)</th>
-              <th>Close</th>
-              <th>Prev Close</th>
+              <th>Close({{ dateDetail.today }})</th>
+              <th>Prev Close({{ dateDetail.yesterday }})</th>
               <th>Trade Count</th>
               <th>Prev Trade Count</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="stock in display_stocks" :key="stock.symbol">
+            <tr v-for="stock in displayStocks" :key="stock.symbol">
               <td>{{ stock.symbol }}</td>
               <td>{{ stock.name }}</td>
               <td :class="getPriceChangeClass(calculatePriceChange(stock.close, stock.prev_close))">
@@ -401,8 +478,34 @@ body {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
+.btn-ai {
+  background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+}
+
+.btn-ai:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+}
+
+.btn-ai:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ai-data-container {
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.ai-data-container li {
+  margin-bottom: 12px;
+}
+
 /* 表格容器 */
-.table-container {
+.table-container, .ai-data-container {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 16px;
   overflow: hidden;
@@ -501,6 +604,37 @@ tbody tr:hover {
   th, td {
     padding: 0.5rem;
   }
+}
+
+.model-container {
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.model-content {
+  width: 480px;
+  height: 240px;
+  background: black;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.model-body input {
+  width: 200px;
+  height: 42px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-right: 12px;
 }
 
 @media (max-width: 575px) {
