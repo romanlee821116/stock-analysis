@@ -11,14 +11,15 @@ const error = ref('')
 const date = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })
 const priceDiff = ref(null)
 const tradeCountDiff = ref(null)
-const symbol_filter = ref('')
+const symbolFilter = ref('')
 const dateDetail = ref({})
 const isClassifying = ref(false)
 const aiResult = ref({})
 const geminiApiKey = ref('')
 const isShowAiModel = ref(false)
+const showAiResults = ref(false)
 
-watch(symbol_filter, () => {
+watch(symbolFilter, () => {
   filter()
 })
 const toNumber = data => {
@@ -56,10 +57,10 @@ const filter = () => {
   
   // 先根據股票代號篩選
   let filteredStocks = stocks.value
-  if (symbol_filter.value.trim()) {
+  if (symbolFilter.value.trim()) {
     filteredStocks = stocks.value.filter(stock => 
-      stock.symbol.includes(symbol_filter.value.trim()) || 
-      stock.name.includes(symbol_filter.value.trim())
+      stock.symbol.includes(symbolFilter.value.trim()) || 
+      stock.name.includes(symbolFilter.value.trim())
     )
   }
   
@@ -95,17 +96,19 @@ const reset = () => {
   displayStocks.value = stocks.value
   tradeCountDiff.value = null
   priceDiff.value = null
-  symbol_filter.value = ''
+  symbolFilter.value = ''
   aiResult.value = {}
 }
 const aiAnalysis = async () => {
-  const sessionData = JSON.parse(window.sessionStorage.getItem('aiResult'))
-  if (sessionData?.searchDate === dateDetail.value.today) {
-    const data = sessionData.filter(item => item.priceDiff === priceDiff.value && item.tradeCountDiff === tradeCountDiff.value)
+  const sessionData = JSON.parse(window.sessionStorage.getItem('aiResult')) || {}
+  if (sessionData?.searchDate === dateDetail.value.today && sessionData?.data) {
+    const data = sessionData.data.filter(item => item.priceDiff === priceDiff.value && item.tradeCountDiff === tradeCountDiff.value)
     if (data.length > 0) {
-      aiResult.value = data.result
+      aiResult.value = data[0].result
+      isShowAiModel.value = false
       loading.value = false
       isClassifying.value = false
+      showAiResults.value = true
       return
     }
   }
@@ -113,9 +116,9 @@ const aiAnalysis = async () => {
   loading.value = true
   isClassifying.value = true
   const prompt = displayStocks.value.map(item => `${item.symbol}${item.name}`).join(', ')
-  const result = await callGemini(prompt, geminiApiKey.value)
+  const result = await callGemini(prompt)
 
-  if (sessionData === null || sessionData.searchDate !== dateDetail.value.today) {
+  if (sessionData.searchDate !== dateDetail.value.today) {
     sessionData.searchDate = dateDetail.value.today
     sessionData.data = []
   }
@@ -191,7 +194,7 @@ onMounted(async () => {
         <div class="filter-section">
           <div class="filter-group">
             <label>Stock Code/Name</label>
-            <input type="text" v-model="symbol_filter" placeholder="Enter stock code or name" />
+            <input type="text" v-model="symbolFilter" placeholder="Enter stock code or name" />
           </div>
           <div class="filter-group">
             <label>Price Diff (%)</label>
@@ -225,28 +228,35 @@ onMounted(async () => {
       </div>
 
       <div
-        v-if="Object.keys(aiResult).length > 0"
+        v-if="aiResult && Object.keys(aiResult).length > 0"
         class="ai-data-container"
       >
-        <div
-          v-for="industry in Object.keys(aiResult.stocks)"
-          :key="industry"
-          class="ai-industry"
-        >
-          <h2>{{ industry }}</h2>
-          <ul>
-            <li v-for="stock in aiResult.stocks[industry]" :key="stock.code">
-              {{ `${stock.code} ${stock.name}: ${stock.summary}` }}
-            </li>
-          </ul>
+        <div class="ai-header" @click="showAiResults = !showAiResults">
+          <h2>AI 分析結果</h2>
+          <span class="toggle-icon">{{ showAiResults ? '▼' : '▶' }}</span>
         </div>
-        <div class="ai-recommendations">
-          <h2>推薦標的</h2>
-          <ul>
-            <li v-for="recommendation in aiResult.recommendations" :key="recommendation.code">
-              {{ `${recommendation.code} ${recommendation.name}: ${recommendation.reason}` }}
-            </li>
-          </ul>
+        
+        <div v-show="showAiResults" class="ai-content">
+          <div
+            v-for="industry in Object.keys(aiResult?.stocks || {})"
+            :key="industry"
+            class="ai-industry"
+          >
+            <h2>{{ industry }}</h2>
+            <ul>
+              <li v-for="stock in aiResult?.stocks?.[industry] || []" :key="stock.code">
+                {{ `${stock.code} ${stock.name}: ${stock.summary}` }}
+              </li>
+            </ul>
+          </div>
+          <div class="ai-recommendations">
+            <h2>推薦標的</h2>
+            <ul>
+              <li v-for="recommendation in aiResult?.recommendations || []" :key="recommendation.code">
+                {{ `${recommendation.code} ${recommendation.name}: ${recommendation.reason}` }}
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
       
@@ -497,15 +507,107 @@ body {
 
 .ai-data-container {
   margin-bottom: 24px;
-  padding: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.ai-data-container li {
-  margin-bottom: 12px;
+.ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.ai-header:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ai-header h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.toggle-icon {
+  font-size: 1.2rem;
+  color: #ccc;
+  transition: transform 0.3s ease;
+  user-select: none;
+}
+
+.ai-content {
+  padding: 1.5rem;
+}
+
+.ai-industry {
+  margin-bottom: 2rem;
+}
+
+.ai-industry h2 {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ai-industry ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ai-industry li {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  color: #ccc;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.ai-recommendations {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ai-recommendations h2 {
+  color: #34c759;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.ai-recommendations ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ai-recommendations li {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(52, 199, 89, 0.1);
+  border: 1px solid rgba(52, 199, 89, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 /* 表格容器 */
-.table-container, .ai-data-container {
+.table-container {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 16px;
   overflow: hidden;
