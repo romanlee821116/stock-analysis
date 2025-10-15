@@ -116,7 +116,7 @@ const aiAnalysis = async () => {
   loading.value = true
   isClassifying.value = true
   const prompt = displayStocks.value.map(item => `${item.symbol}${item.name}`).join(', ')
-  const result = await callGemini(prompt)
+  const result = await callGemini(prompt, geminiApiKey.value)
 
   if (sessionData.searchDate !== dateDetail.value.today) {
     sessionData.searchDate = dateDetail.value.today
