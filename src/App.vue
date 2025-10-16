@@ -131,6 +131,7 @@ const aiAnalysis = async () => {
   aiResult.value = result
   loading.value = false
   isClassifying.value = false
+  showAiResults.value = true
 }
 
 
